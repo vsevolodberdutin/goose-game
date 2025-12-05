@@ -19,8 +19,8 @@ export interface RoundDetail extends Round {
 }
 
 export interface TapResponse {
+  taps: number;
   score: number;
-  totalTaps: number;
 }
 
 export interface RoundStats {

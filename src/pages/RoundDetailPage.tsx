@@ -10,6 +10,7 @@ export function RoundDetailPage() {
   const [topStats, setTopStats] = useState<TopStat[]>([]);
   const [myStats, setMyStats] = useState<MyStats | null>(null);
   const [score, setScore] = useState(0);
+  const [taps, setTaps] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -68,9 +69,10 @@ export function RoundDetailPage() {
       setTopStats(data.topStats || []);
       setMyStats(data.myStats || null);
 
-      // Set initial score from myStats
+      // Set initial score and taps from myStats
       if (data.myStats) {
         setScore(data.myStats.score);
+        setTaps(data.myStats.taps);
       }
     } catch (err) {
       setError("Failed to load round");
@@ -92,6 +94,7 @@ export function RoundDetailPage() {
       setIsTapping(true);
       const response = await api.tapGoose(token!, id!);
       setScore(response.score);
+      setTaps(response.taps);
     } catch (err) {
       console.error("Failed to tap goose:", err);
     } finally {
@@ -123,7 +126,7 @@ export function RoundDetailPage() {
     const now = new Date().getTime();
     const startTime = new Date(round.startTime).getTime();
     const endTime = new Date(round.endTime).getTime();
-console.log("now", now, "startTime", startTime, "endTime", endTime);
+    console.log("now", now, "startTime", startTime, "endTime", endTime);
     if (now < startTime) return "COOLDOWN";
     if (now >= startTime && now < endTime) return "ACTIVE";
     return "FINISHED";
@@ -155,7 +158,6 @@ console.log("now", now, "startTime", startTime, "endTime", endTime);
 
   const currentStatus = getRoundStatus();
 
-
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
       <div className="w-full max-w-md">
@@ -167,14 +169,13 @@ console.log("now", now, "startTime", startTime, "endTime", endTime);
               className="rounded-md border cursor-pointer border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 transition-colors duration-150 hover:bg-gray-50">
               Назад
             </button>
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-600">{username} {currentStatus}</span>
-              <button
-                onClick={handleLogout}
-                className="rounded-md border cursor-pointer border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 transition-colors duration-150 hover:bg-gray-50">
-                Выйти
-              </button>
-            </div>
+
+            <span className="text-sm text-gray-600">{username}</span>
+            <button
+              onClick={handleLogout}
+              className="rounded-md border cursor-pointer border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 transition-colors duration-150 hover:bg-gray-50">
+              Выйти
+            </button>
           </div>
 
           {/* Content */}
@@ -216,7 +217,7 @@ console.log("now", now, "startTime", startTime, "endTime", endTime);
                 <p className="text-sm text-gray-600">
                   До конца осталось: {formatTime(timeRemaining)}
                 </p>
-                <p className="text-sm text-gray-700">Мои очки - {score}</p>
+                <p className="text-sm text-gray-700">Мои очки: {score}</p>
               </div>
             )}
 
