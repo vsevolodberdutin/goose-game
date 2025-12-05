@@ -180,18 +180,21 @@ export function RoundDetailPage() {
 
           {/* Content */}
           <div className="flex-1 p-6">
-            {/* Goose Image */}
             <div className="mb-6 flex justify-center">
               <div
-                className={`w-[200px] rounded-lg overflow-hidden border border-gray-300 bg-white shadow-md
-                  ${
-                    currentStatus === "ACTIVE"
-                      ? "cursor-pointer transition-transform duration-200 hover:scale-105"
-                      : "cursor-not-allowed opacity-70"
-                  }`}
+                className={`w-[200px] rounded-lg overflow-hidden bg-white shadow-md
+                    border transition-all duration-200
+                    ${
+                      isTapping ? "border-lime-400 border-4" : "border-gray-300"
+                    }
+                    ${
+                      currentStatus === "ACTIVE"
+                        ? "cursor-pointer "
+                        : "cursor-not-allowed opacity-70"
+                    }`}
                 onClick={handleTapGoose}>
                 <img
-                  src="/images/mutant-goose.png"
+                  src="/images/mutant-goose-selfie.png"
                   alt="Mutant Goose G-42"
                   className="w-full h-full object-cover"
                 />
@@ -209,7 +212,7 @@ export function RoundDetailPage() {
             )}
 
             {/* Active State */}
-            {currentStatus === "ACTIVE" && (
+            {currentStatus === "ACTIVE" && timeRemaining > 0 && (
               <div className="space-y-2 text-center">
                 <p className="text-lg font-semibold text-green-600">
                   Раунд активен!
@@ -221,8 +224,17 @@ export function RoundDetailPage() {
               </div>
             )}
 
+            {/* Completed State Loading */}
+            {((currentStatus === "ACTIVE" && timeRemaining <= 0) || currentStatus === "FINISHED") && topStats.length === 0 && (
+              <div className="space-y-2 text-center">
+                <p className="text-lg font-semibold text-gray-700">
+                  Загрузка результатов...
+                </p>
+              </div>
+            )}
+
             {/* Completed State */}
-            {currentStatus === "FINISHED" && topStats.length > 0 && (
+            {((currentStatus === "ACTIVE" && timeRemaining <= 0) || currentStatus === "FINISHED") && topStats.length > 0 && (
               <div className="space-y-3">
                 <div className="border-t border-gray-300 pt-3">
                   <div className="flex justify-between py-2">
