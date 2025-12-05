@@ -1,32 +1,9 @@
-export interface User {
-  username: string;
-  token: string;
-  isAdmin: boolean;
-}
-
 export interface Round {
   id: string;
   startTime: string;
   endTime: string;
   createdAt?: string;
   totalScore?: number;
-}
-
-export interface RoundDetail extends Round {
-  totalTaps?: number;
-  winner?: string;
-  playerScore?: number;
-}
-
-export interface TapResponse {
-  taps: number;
-  score: number;
-}
-
-export interface RoundStats {
-  totalTaps: number;
-  winner: string;
-  personalScore: number;
 }
 
 export interface RoundsResponse {

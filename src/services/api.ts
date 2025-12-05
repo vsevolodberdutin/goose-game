@@ -101,23 +101,6 @@ export const api = {
     return response.json();
   },
 
-  async getRoundStats(token: string, roundId: string) {
-    const response = await fetch(
-      `${API_BASE_URL}/api/v1/rounds/${roundId}/stats`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error("Failed to fetch stats");
-    }
-
-    return response.json();
-  },
-
   async logout() {
     const response = await fetch(`${API_BASE_URL}/api/v1/auth/logout`, {
       method: "POST",

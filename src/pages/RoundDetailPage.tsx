@@ -10,7 +10,6 @@ export function RoundDetailPage() {
   const [topStats, setTopStats] = useState<TopStat[]>([]);
   const [myStats, setMyStats] = useState<MyStats | null>(null);
   const [score, setScore] = useState(0);
-  const [taps, setTaps] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -47,7 +46,7 @@ export function RoundDetailPage() {
         setTimeRemaining(remaining);
 
         if (remaining === 0 && topStats.length === 0) {
-          loadStats();
+          loadRound();
         }
       }
     };
@@ -69,10 +68,9 @@ export function RoundDetailPage() {
       setTopStats(data.topStats || []);
       setMyStats(data.myStats || null);
 
-      // Set initial score and taps from myStats
+      // Set initial score from myStats
       if (data.myStats) {
         setScore(data.myStats.score);
-        setTaps(data.myStats.taps);
       }
     } catch (err) {
       setError("Failed to load round");
@@ -82,11 +80,6 @@ export function RoundDetailPage() {
     }
   };
 
-  const loadStats = async () => {
-    // Reload the round to get updated stats
-    await loadRound();
-  };
-
   const handleTapGoose = async () => {
     if (!round || getRoundStatus() !== "ACTIVE" || isTapping) return;
 
@@ -94,7 +87,6 @@ export function RoundDetailPage() {
       setIsTapping(true);
       const response = await api.tapGoose(token!, id!);
       setScore(response.score);
-      setTaps(response.taps);
     } catch (err) {
       console.error("Failed to tap goose:", err);
     } finally {
@@ -130,14 +122,6 @@ export function RoundDetailPage() {
     if (now < startTime) return "COOLDOWN";
     if (now >= startTime && now < endTime) return "ACTIVE";
     return "FINISHED";
-  };
-
-  const getStatusTitle = () => {
-    if (!round) return "";
-    const currentStatus = getRoundStatus();
-    if (currentStatus === "COOLDOWN") return "Запланирован";
-    if (currentStatus === "ACTIVE") return "Активен";
-    return "Раунд завершен";
   };
 
   if (isLoading) {
