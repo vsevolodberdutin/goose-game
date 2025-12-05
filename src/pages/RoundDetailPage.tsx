@@ -1,18 +1,8 @@
-import { useEffect, useState } from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
-import { api } from '../services/api';
-import { RoundDetail, RoundStats } from '../types';
-import { useAuthStore } from '../store/useAuthStore';
-
-const GOOSE_ASCII = `
-    __
-   >(' )
-    )/
-   ( (
-    ||
-    ||
-  ~~~~~~~
-`;
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { api } from "../services/api";
+import { RoundDetail, RoundStats } from "../types";
+import { useAuthStore } from "../store/useAuthStore";
 
 export function RoundDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -21,15 +11,15 @@ export function RoundDetailPage() {
   const [score, setScore] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [isTapping, setIsTapping] = useState(false);
   const navigate = useNavigate();
 
-  const token = useAuthStore((state) => state.token);
+  const { token, username, clearAuth } = useAuthStore();
 
   useEffect(() => {
     if (!token) {
-      navigate('/');
+      navigate("/");
       return;
     }
 
@@ -39,17 +29,29 @@ export function RoundDetailPage() {
   useEffect(() => {
     if (!round) return;
 
-    const interval = setInterval(() => {
+    const updateTimer = () => {
       const now = new Date().getTime();
+      const startTime = new Date(round.startTime).getTime();
       const endTime = new Date(round.endTime).getTime();
-      const remaining = Math.max(0, Math.floor((endTime - now) / 1000));
+      const currentStatus = getRoundStatus();
 
-      setTimeRemaining(remaining);
+      if (currentStatus === "scheduled") {
+        // Time until round starts
+        const remaining = Math.max(0, Math.floor((startTime - now) / 1000));
+        setTimeRemaining(remaining);
+      } else if (currentStatus === "active") {
+        // Time until round ends
+        const remaining = Math.max(0, Math.floor((endTime - now) / 1000));
+        setTimeRemaining(remaining);
 
-      if (remaining === 0 && round.status === 'active' && !stats) {
-        loadStats();
+        if (remaining === 0 && !stats) {
+          loadStats();
+        }
       }
-    }, 1000);
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
 
     return () => clearInterval(interval);
   }, [round, stats]);
@@ -60,11 +62,14 @@ export function RoundDetailPage() {
       const data = await api.getRoundById(token!, id!);
       setRound(data);
 
-      if (data.status === 'completed') {
+      // Check if round is completed and load stats
+      const now = new Date().getTime();
+      const endTime = new Date(data.endTime).getTime();
+      if (now >= endTime) {
         await loadStats();
       }
     } catch (err) {
-      setError('Failed to load round');
+      setError("Failed to load round");
       console.error(err);
     } finally {
       setIsLoading(false);
@@ -76,178 +81,173 @@ export function RoundDetailPage() {
       const statsData = await api.getRoundStats(token!, id!);
       setStats(statsData);
     } catch (err) {
-      console.error('Failed to load stats:', err);
+      console.error("Failed to load stats:", err);
     }
   };
 
   const handleTapGoose = async () => {
-    if (!round || round.status !== 'active' || isTapping) return;
+    if (!round || getRoundStatus() !== "active" || isTapping) return;
 
     try {
       setIsTapping(true);
       const response = await api.tapGoose(token!, id!);
       setScore(response.score);
     } catch (err) {
-      console.error('Failed to tap goose:', err);
+      console.error("Failed to tap goose:", err);
     } finally {
       setIsTapping(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await api.logout();
+    } catch (err) {
+      console.error("Logout error:", err);
+    } finally {
+      // Clear auth state regardless of API call success
+      clearAuth();
+      navigate("/");
     }
   };
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   const getRoundStatus = () => {
-    if (!round) return '';
+    if (!round) return "";
 
     const now = new Date().getTime();
     const startTime = new Date(round.startTime).getTime();
     const endTime = new Date(round.endTime).getTime();
 
-    if (now < startTime) return 'scheduled';
-    if (now >= startTime && now < endTime) return 'active';
-    return 'completed';
+    if (now < startTime) return "scheduled";
+    if (now >= startTime && now < endTime) return "active";
+    return "completed";
+  };
+
+  const getStatusTitle = () => {
+    if (!round) return "";
+    const currentStatus = getRoundStatus();
+    if (currentStatus === "scheduled") return "Cooldown";
+    if (currentStatus === "active") return "Раунды";
+    return "Раунд завершен";
   };
 
   if (isLoading) {
     return (
-      <div
-        className="flex min-h-screen items-center justify-center
-          bg-gradient-to-br from-blue-50 to-indigo-100"
-      >
-        <div className="text-xl text-gray-700">Loading round...</div>
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <div className="text-lg text-gray-700">Загрузка...</div>
       </div>
     );
   }
 
   if (error || !round) {
     return (
-      <div
-        className="flex min-h-screen items-center justify-center
-          bg-gradient-to-br from-blue-50 to-indigo-100"
-      >
-        <div className="text-xl text-red-600">{error || 'Round not found'}</div>
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <div className="text-lg text-red-600">{error || "Раунд не найден"}</div>
       </div>
     );
   }
 
   const currentStatus = getRoundStatus();
 
+
   return (
-    <div
-      className="min-h-screen
-        bg-gradient-to-br from-blue-50 to-indigo-100
-        px-4 py-8"
-    >
-      <div className="mx-auto max-w-4xl">
-        <div className="mb-6">
-          <Link
-            to="/rounds"
-            className="inline-flex items-center text-indigo-600
-              hover:text-indigo-700
-              transition duration-200
-              no-underline font-medium"
-          >
-            ← Back to Rounds
-          </Link>
-        </div>
-
-        <div
-          className="rounded-2xl bg-white p-8 shadow-lg
-            border border-gray-200"
-        >
-          <div className="mb-6 text-center">
-            <h1 className="text-3xl font-bold text-gray-800">
-              Round #{id}
-            </h1>
-            <div className="mt-2">
-              <span
-                className={`rounded-full px-4 py-2 text-sm font-semibold
-                  ${currentStatus === 'active' ? 'bg-green-100 text-green-800' : ''}
-                  ${currentStatus === 'completed' ? 'bg-gray-100 text-gray-800' : ''}
-                  ${currentStatus === 'scheduled' ? 'bg-blue-100 text-blue-800' : ''}`}
-              >
-                {currentStatus.toUpperCase()}
-              </span>
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+      <div className="w-full max-w-md">
+        <div className="flex flex-col rounded-lg border border-gray-300 bg-white shadow-sm overflow-hidden">
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-gray-300 bg-gradient-to-b from-gray-50 to-white px-6 py-4">
+            <button
+              onClick={() => navigate("/rounds")}
+              className="rounded-md border cursor-pointer border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 transition-colors duration-150 hover:bg-gray-50">
+              Назад
+            </button>
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-gray-600">{username} {currentStatus}</span>
+              <button
+                onClick={handleLogout}
+                className="rounded-md border cursor-pointer border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 transition-colors duration-150 hover:bg-gray-50">
+                Выйти
+              </button>
             </div>
           </div>
 
-          {currentStatus === 'active' && (
-            <div className="mb-6 text-center">
-              <div className="text-4xl font-bold text-indigo-600">
-                {formatTime(timeRemaining)}
-              </div>
-              <div className="text-sm text-gray-600">Time Remaining</div>
-            </div>
-          )}
-
-          {currentStatus === 'scheduled' && (
-            <div className="mb-6 text-center">
-              <div className="text-lg text-gray-700">
-                Round starts at: {new Date(round.startTime).toLocaleString()}
-              </div>
-            </div>
-          )}
-
-          <div
-            className="mb-6 flex justify-center
-              rounded-xl bg-gray-50 p-8
-              border border-gray-200"
-          >
-            <pre
-              className={`font-mono text-4xl
-                ${currentStatus === 'active' ? 'cursor-pointer select-none hover:scale-110' : 'cursor-not-allowed opacity-50'}
-                transition-transform duration-200`}
-              onClick={handleTapGoose}
-            >
-              {GOOSE_ASCII}
-            </pre>
-          </div>
-
-          {currentStatus === 'active' && (
-            <div className="mb-6 text-center">
-              <div className="text-3xl font-bold text-gray-800">{score}</div>
-              <div className="text-sm text-gray-600">Your Score</div>
-            </div>
-          )}
-
-          {currentStatus === 'completed' && stats && (
-            <div className="space-y-4">
-              <h2 className="text-2xl font-bold text-center text-gray-800">
-                Round Statistics
-              </h2>
-
+          {/* Content */}
+          <div className="flex-1 p-6">
+            {/* Goose Image */}
+            <div className="mb-6 flex justify-center">
               <div
-                className="grid grid-cols-1 gap-4 md:grid-cols-3
-                  rounded-xl bg-gradient-to-br from-indigo-50 to-blue-50 p-6
-                  border border-indigo-200"
-              >
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-indigo-600">
-                    {stats.totalTaps}
-                  </div>
-                  <div className="text-sm text-gray-600">Total Taps</div>
-                </div>
-
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-green-600">
-                    {stats.winner}
-                  </div>
-                  <div className="text-sm text-gray-600">Winner</div>
-                </div>
-
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-purple-600">
-                    {stats.personalScore}
-                  </div>
-                  <div className="text-sm text-gray-600">Your Score</div>
-                </div>
+                className={`w-[200px] rounded-lg overflow-hidden border border-gray-300 bg-white shadow-md
+                  ${
+                    currentStatus === "active"
+                      ? "cursor-pointer transition-transform duration-200 hover:scale-105"
+                      : "cursor-not-allowed opacity-70"
+                  }`}
+                onClick={handleTapGoose}>
+                <img
+                  src="/images/mutant-goose.png"
+                  alt="Mutant Goose G-42"
+                  className="w-full h-full object-cover"
+                />
               </div>
             </div>
-          )}
+
+            {/* Scheduled State */}
+            {currentStatus === "scheduled" && (
+              <div className="space-y-2 text-center">
+                <p className="text-lg font-semibold text-gray-700">Cooldown</p>
+                <p className="text-sm text-gray-600">
+                  до начала раунда {formatTime(timeRemaining)}
+                </p>
+              </div>
+            )}
+
+            {/* Active State */}
+            {currentStatus === "active" && (
+              <div className="space-y-2 text-center">
+                <p className="text-lg font-semibold text-green-600">
+                  Раунд активен!
+                </p>
+                <p className="text-sm text-gray-600">
+                  До конца осталось: {formatTime(timeRemaining)}
+                </p>
+                <p className="text-sm text-gray-700">Мои очки - {score}</p>
+              </div>
+            )}
+
+            {/* Completed State */}
+            {currentStatus === "completed" && stats && (
+              <div className="space-y-3">
+                <div className="border-t border-gray-300 pt-3">
+                  <div className="flex justify-between py-2">
+                    <span className="text-sm text-gray-600">Всего</span>
+                    <span className="text-sm font-medium text-gray-800">
+                      {stats.totalTaps}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-2">
+                    <span className="text-sm text-gray-600">
+                      Победитель - {stats.winner}
+                    </span>
+                    <span className="text-sm font-medium text-gray-800">
+                      {stats.personalScore}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-2">
+                    <span className="text-sm text-gray-600">Мои очки</span>
+                    <span className="text-sm font-medium text-gray-800">
+                      {score}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

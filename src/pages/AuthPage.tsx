@@ -19,7 +19,9 @@ export const AuthPage = () => {
     try {
       const response = await api.login({ username, password });
 
-      setAuth(response.token, response.username, response.isAdmin);
+      // Convert role to isAdmin boolean
+      const isAdmin = response.role === 'ADMIN';
+      setAuth(response.token, response.username, isAdmin);
 
       navigate("/rounds");
     } catch (err) {

@@ -8,7 +8,7 @@ export interface LoginRequest {
 export interface LoginResponse {
   token: string;
   username: string;
-  isAdmin: boolean;
+  role: 'ADMIN' | 'SURVIVOR';
 }
 
 export const api = {
@@ -30,8 +30,12 @@ export const api = {
     return response.json();
   },
 
-  async getRounds(token: string) {
-    const response = await fetch(`${API_BASE_URL}/api/v1/rounds`, {
+  async getRounds(token: string, cursor?: string) {
+    const url = cursor
+      ? `${API_BASE_URL}/api/v1/rounds?cursor=${cursor}`
+      : `${API_BASE_URL}/api/v1/rounds`;
+
+    const response = await fetch(url, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -65,6 +69,7 @@ export const api = {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
+      body: JSON.stringify({}),
     });
 
     if (!response.ok) {
@@ -98,6 +103,21 @@ export const api = {
 
     if (!response.ok) {
       throw new Error('Failed to fetch stats');
+    }
+
+    return response.json();
+  },
+
+  async logout() {
+    const response = await fetch(`${API_BASE_URL}/api/v1/auth/logout`, {
+      method: 'POST',
+      headers: {
+        'accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to logout');
     }
 
     return response.json();

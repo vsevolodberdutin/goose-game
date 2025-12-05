@@ -8,7 +8,8 @@ export interface Round {
   id: string;
   startTime: string;
   endTime: string;
-  status: 'scheduled' | 'active' | 'completed';
+  createdAt?: string;
+  totalScore?: number;
 }
 
 export interface RoundDetail extends Round {
@@ -26,4 +27,13 @@ export interface RoundStats {
   totalTaps: number;
   winner: string;
   personalScore: number;
+}
+
+export interface RoundsResponse {
+  data: Round[];
+  pagination: {
+    limit: number;
+    nextCursor?: string;
+    hasMore: boolean;
+  };
 }
