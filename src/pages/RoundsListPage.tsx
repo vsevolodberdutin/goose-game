@@ -82,15 +82,26 @@ export function RoundsListPage() {
     }
   };
 
-  const getStatus = (round: Round) => {
+  const getStatus = (
+    round: Round
+  ): {
+    status: "COOLDOWN" | "ACTIVE" | "FINISHED";
+    text: string;
+    color: string;
+  } => {
     const now = new Date().getTime();
     const start = new Date(round.startTime).getTime();
     const end = new Date(round.endTime).getTime();
 
-    if (now < start) return { text: "Запланирован", color: "text-blue-600" };
+    if (now < start)
+      return {
+        status: "COOLDOWN",
+        text: "Запланирован",
+        color: "text-blue-600",
+      };
     if (now >= start && now < end)
-      return { text: "Активен", color: "text-green-600" };
-    return { text: "Cooldown", color: "text-gray-600" };
+      return { status: "ACTIVE", text: "Активен", color: "text-green-600" };
+    return { status: "FINISHED", text: "Завершен", color: "text-gray-600" };
   };
 
   const formatDateTime = (dateString: string) => {
@@ -167,7 +178,16 @@ export function RoundsListPage() {
                         to={`/rounds/${round.id}`}
                         className="block rounded-lg border border-gray-300 bg-white p-4 no-underline transition-all duration-150 hover:border-gray-400 hover:bg-gray-50">
                         <div className="flex items-start gap-2">
-                          <span className="mt-1 text-gray-400">●</span>
+                          <span
+                            className={` ${
+                              status.status === "ACTIVE"
+                                ? "text-orange-500"
+                                : status.status === "COOLDOWN"
+                                ? "text-blue-500"
+                                : "text-gray-400"
+                            }`}>
+                            ●
+                          </span>
                           <div className="flex-1">
                             <p className="mb-3 text-sm font-medium text-gray-800">
                               Round ID: {round.id}

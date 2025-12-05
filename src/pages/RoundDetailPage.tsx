@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../services/api";
-import { RoundDetail, RoundStats } from "../types";
+import { Round, RoundDetailResponse, TopStat, MyStats } from "../types";
 import { useAuthStore } from "../store/useAuthStore";
 
 export function RoundDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const [round, setRound] = useState<RoundDetail | null>(null);
-  const [stats, setStats] = useState<RoundStats | null>(null);
+  const [round, setRound] = useState<Round | null>(null);
+  const [topStats, setTopStats] = useState<TopStat[]>([]);
+  const [myStats, setMyStats] = useState<MyStats | null>(null);
   const [score, setScore] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -35,16 +36,16 @@ export function RoundDetailPage() {
       const endTime = new Date(round.endTime).getTime();
       const currentStatus = getRoundStatus();
 
-      if (currentStatus === "scheduled") {
+      if (currentStatus === "COOLDOWN") {
         // Time until round starts
         const remaining = Math.max(0, Math.floor((startTime - now) / 1000));
         setTimeRemaining(remaining);
-      } else if (currentStatus === "active") {
+      } else if (currentStatus === "ACTIVE") {
         // Time until round ends
         const remaining = Math.max(0, Math.floor((endTime - now) / 1000));
         setTimeRemaining(remaining);
 
-        if (remaining === 0 && !stats) {
+        if (remaining === 0 && topStats.length === 0) {
           loadStats();
         }
       }
@@ -54,19 +55,22 @@ export function RoundDetailPage() {
     const interval = setInterval(updateTimer, 1000);
 
     return () => clearInterval(interval);
-  }, [round, stats]);
+  }, [round, topStats]);
 
   const loadRound = async () => {
     try {
       setIsLoading(true);
-      const data = await api.getRoundById(token!, id!);
-      setRound(data);
+      const data: RoundDetailResponse = await api.getRoundById(token!, id!);
+      console.log("Round API response:", data);
 
-      // Check if round is completed and load stats
-      const now = new Date().getTime();
-      const endTime = new Date(data.endTime).getTime();
-      if (now >= endTime) {
-        await loadStats();
+      // Backend returns { round: {...}, topStats: [...], myStats: {...} }
+      setRound(data.round);
+      setTopStats(data.topStats || []);
+      setMyStats(data.myStats || null);
+
+      // Set initial score from myStats
+      if (data.myStats) {
+        setScore(data.myStats.score);
       }
     } catch (err) {
       setError("Failed to load round");
@@ -77,16 +81,12 @@ export function RoundDetailPage() {
   };
 
   const loadStats = async () => {
-    try {
-      const statsData = await api.getRoundStats(token!, id!);
-      setStats(statsData);
-    } catch (err) {
-      console.error("Failed to load stats:", err);
-    }
+    // Reload the round to get updated stats
+    await loadRound();
   };
 
   const handleTapGoose = async () => {
-    if (!round || getRoundStatus() !== "active" || isTapping) return;
+    if (!round || getRoundStatus() !== "ACTIVE" || isTapping) return;
 
     try {
       setIsTapping(true);
@@ -117,23 +117,23 @@ export function RoundDetailPage() {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const getRoundStatus = () => {
+  const getRoundStatus = (): "COOLDOWN" | "ACTIVE" | "FINISHED" | "" => {
     if (!round) return "";
 
     const now = new Date().getTime();
     const startTime = new Date(round.startTime).getTime();
     const endTime = new Date(round.endTime).getTime();
-
-    if (now < startTime) return "scheduled";
-    if (now >= startTime && now < endTime) return "active";
-    return "completed";
+console.log("now", now, "startTime", startTime, "endTime", endTime);
+    if (now < startTime) return "COOLDOWN";
+    if (now >= startTime && now < endTime) return "ACTIVE";
+    return "FINISHED";
   };
 
   const getStatusTitle = () => {
     if (!round) return "";
     const currentStatus = getRoundStatus();
-    if (currentStatus === "scheduled") return "Cooldown";
-    if (currentStatus === "active") return "Раунды";
+    if (currentStatus === "COOLDOWN") return "Запланирован";
+    if (currentStatus === "ACTIVE") return "Активен";
     return "Раунд завершен";
   };
 
@@ -184,7 +184,7 @@ export function RoundDetailPage() {
               <div
                 className={`w-[200px] rounded-lg overflow-hidden border border-gray-300 bg-white shadow-md
                   ${
-                    currentStatus === "active"
+                    currentStatus === "ACTIVE"
                       ? "cursor-pointer transition-transform duration-200 hover:scale-105"
                       : "cursor-not-allowed opacity-70"
                   }`}
@@ -198,7 +198,7 @@ export function RoundDetailPage() {
             </div>
 
             {/* Scheduled State */}
-            {currentStatus === "scheduled" && (
+            {currentStatus === "COOLDOWN" && (
               <div className="space-y-2 text-center">
                 <p className="text-lg font-semibold text-gray-700">Cooldown</p>
                 <p className="text-sm text-gray-600">
@@ -208,7 +208,7 @@ export function RoundDetailPage() {
             )}
 
             {/* Active State */}
-            {currentStatus === "active" && (
+            {currentStatus === "ACTIVE" && (
               <div className="space-y-2 text-center">
                 <p className="text-lg font-semibold text-green-600">
                   Раунд активен!
@@ -221,29 +221,33 @@ export function RoundDetailPage() {
             )}
 
             {/* Completed State */}
-            {currentStatus === "completed" && stats && (
+            {currentStatus === "FINISHED" && topStats.length > 0 && (
               <div className="space-y-3">
                 <div className="border-t border-gray-300 pt-3">
                   <div className="flex justify-between py-2">
                     <span className="text-sm text-gray-600">Всего</span>
                     <span className="text-sm font-medium text-gray-800">
-                      {stats.totalTaps}
+                      {round?.totalScore || 0}
                     </span>
                   </div>
-                  <div className="flex justify-between py-2">
-                    <span className="text-sm text-gray-600">
-                      Победитель - {stats.winner}
-                    </span>
-                    <span className="text-sm font-medium text-gray-800">
-                      {stats.personalScore}
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-2">
-                    <span className="text-sm text-gray-600">Мои очки</span>
-                    <span className="text-sm font-medium text-gray-800">
-                      {score}
-                    </span>
-                  </div>
+                  {topStats[0] && (
+                    <div className="flex justify-between py-2">
+                      <span className="text-sm text-gray-600">
+                        Победитель - {topStats[0].user.username}
+                      </span>
+                      <span className="text-sm font-medium text-gray-800">
+                        {topStats[0].score}
+                      </span>
+                    </div>
+                  )}
+                  {myStats && (
+                    <div className="flex justify-between py-2">
+                      <span className="text-sm text-gray-600">Мои очки</span>
+                      <span className="text-sm font-medium text-gray-800">
+                        {myStats.score}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

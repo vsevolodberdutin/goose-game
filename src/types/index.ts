@@ -37,3 +37,22 @@ export interface RoundsResponse {
     hasMore: boolean;
   };
 }
+
+export interface TopStat {
+  taps: number;
+  score: number;
+  user: {
+    username: string;
+  };
+}
+
+export interface MyStats {
+  taps: number;
+  score: number;
+}
+
+export interface RoundDetailResponse {
+  round: Round;
+  topStats: TopStat[];
+  myStats: MyStats;
+}
